@@ -72,3 +72,26 @@ def create_task_accept_keyboard(task_id):
             ]
         ]
     )
+
+
+def create_active_task_keyboard(task_id):
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="✅ Выполнено",
+                    callback_data=f"task:complete:{task_id}",
+                ),
+                InlineKeyboardButton(
+                    text="❌ Отменить",
+                    callback_data=f"task:cancel:{task_id}",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="⚠️ Перенести дедлайн",
+                    callback_data=f"task:move:{task_id}",
+                )
+            ],
+        ]
+    )

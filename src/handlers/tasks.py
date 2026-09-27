@@ -6,11 +6,16 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message
 
 from keyboards.tasks import (
+    create_active_task_keyboard,
     create_assignee_keyboard,
     create_deadline_keyboard,
     create_task_accept_keyboard,
 )
-from services.tasks import create_task
+from services.tasks import (
+    accept_task,
+    create_task,
+    get_task,
+)
 
 
 router = Router()
@@ -24,11 +29,44 @@ USERS = {
 }
 
 
+CREATOR_NAMES = {
+    2008737156: "Артема",
+    431869701: "Дани",
+    540028179: "Мамы",
+    982526654: "Жени",
+}
+
+
+MONTHS = {
+    1: "января",
+    2: "февраля",
+    3: "марта",
+    4: "апреля",
+    5: "мая",
+    6: "июня",
+    7: "июля",
+    8: "августа",
+    9: "сентября",
+    10: "октября",
+    11: "ноября",
+    12: "декабря",
+}
+
+
 class TaskCreation(StatesGroup):
     waiting_assignee = State()
     waiting_text = State()
     waiting_deadline = State()
     waiting_custom_deadline = State()
+
+
+def format_deadline(deadline):
+    month = MONTHS[deadline.month]
+
+    return (
+        f"{deadline.day} {month} "
+        f"в {deadline.strftime('%H:%M')}"
+    )
 
 
 @router.message(F.text == "/task")
@@ -234,13 +272,18 @@ async def create_task_from_state(
     assignee_name = data["assignee_name"]
     photo_file_id = data["photo_file_id"]
 
-    deadline_text = deadline.strftime("%d.%m.%Y %H:%M")
+    deadline_text = format_deadline(deadline)
+
+    creator_name = CREATOR_NAMES.get(
+        user.id,
+        user.full_name,
+    )
 
     await state.clear()
 
     task_message = (
         f"📋 Новая задача #{task_id}\n\n"
-        f"👤 От: {user.full_name}\n\n"
+        f"👤 От: {creator_name}\n\n"
         f"📝 {task_text}\n\n"
         f"⏰ Срок: {deadline_text}"
     )
@@ -273,3 +316,48 @@ async def create_task_from_state(
             "но отправить её исполнителю не удалось.\n\n"
             "Возможно, он ещё не запускал бота через /start."
         )
+
+
+@router.callback_query(
+    F.data.startswith("task:accept:")
+)
+async def task_accept_handler(callback: CallbackQuery):
+    task_id = int(callback.data.split(":")[-1])
+    task = get_task(task_id)
+
+    if not task:
+        await callback.answer(
+            "❌ Задача не найдена.",
+            show_alert=True,
+        )
+        return
+
+    if task["assignee_telegram_id"] != callback.from_user.id:
+        await callback.answer(
+            "❌ Эта задача назначена не вам.",
+            show_alert=True,
+        )
+        return
+
+    if task["status"] != "pending_acceptance":
+        await callback.answer(
+            "Задача уже была принята.",
+            show_alert=True,
+        )
+        return
+
+    accept_task(task_id)
+
+    await callback.message.edit_reply_markup(
+        reply_markup=create_active_task_keyboard(task_id),
+    )
+
+    await callback.answer("✅ Задача принята!")
+
+    await callback.bot.send_message(
+        chat_id=task["creator_telegram_id"],
+        text=(
+            f"✅ {USERS.get(callback.from_user.id, callback.from_user.full_name)} "
+            f"принял задачу #{task_id}."
+        ),
+    )
