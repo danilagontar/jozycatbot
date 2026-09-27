@@ -10,11 +10,15 @@ from keyboards.tasks import (
     create_assignee_keyboard,
     create_deadline_keyboard,
     create_task_accept_keyboard,
+    create_tasks_list_keyboard,
 )
 from services.tasks import (
     accept_task,
+    cancel_task,
+    complete_task,
     create_task,
     get_task,
+    get_user_tasks,
 )
 
 
@@ -67,6 +71,50 @@ def format_deadline(deadline):
         f"{deadline.day} {month} "
         f"в {deadline.strftime('%H:%M')}"
     )
+
+
+def get_deadline_status(deadline):
+    now = datetime.now()
+    remaining = deadline - now
+
+    if remaining.total_seconds() <= 0:
+        return "🔴"
+
+    if remaining.total_seconds() <= 60 * 60:
+        return "🔴"
+
+    if remaining.total_seconds() <= 3 * 60 * 60:
+        return "🟡"
+
+    return "🟢"
+
+
+def create_task_card(task):
+    deadline = datetime.fromisoformat(task["deadline"])
+
+    status_names = {
+        "pending_acceptance": "⏳ Ожидает принятия",
+        "accepted": "🔵 Принята",
+        "completed": "✅ Выполнена",
+        "cancelled": "❌ Отменена",
+    }
+
+    creator_name = CREATOR_NAMES.get(
+        task["creator_telegram_id"],
+        task["creator_name"],
+    )
+
+    text = (
+        f"📋 Задача #{task['id']}\n\n"
+        f"👤 От: {creator_name}\n\n"
+        f"📝 {task['text']}\n\n"
+        f"{get_deadline_status(deadline)} "
+        f"⏰ Срок: {format_deadline(deadline)}\n\n"
+        f"📌 Статус: "
+        f"{status_names.get(task['status'], task['status'])}"
+    )
+
+    return text
 
 
 @router.message(F.text == "/task")
@@ -359,5 +407,165 @@ async def task_accept_handler(callback: CallbackQuery):
         text=(
             f"✅ {USERS.get(callback.from_user.id, callback.from_user.full_name)} "
             f"принял задачу #{task_id}."
+        ),
+    )
+
+
+@router.message(F.text == "/mytasks")
+async def my_tasks_handler(message: Message):
+    tasks = get_user_tasks(message.from_user.id)
+
+    if not tasks:
+        await message.answer(
+            "📋 У тебя сейчас нет активных задач."
+        )
+        return
+
+    await message.answer(
+        "📋 Твои активные задачи:\n\n"
+        "🟢 — больше 3 часов\n"
+        "🟡 — меньше 3 часов\n"
+        "🔴 — меньше часа или срок прошёл",
+        reply_markup=create_tasks_list_keyboard(tasks),
+    )
+
+
+@router.callback_query(
+    F.data.startswith("task:view:")
+)
+async def task_view_handler(callback: CallbackQuery):
+    task_id = int(callback.data.split(":")[-1])
+    task = get_task(task_id)
+
+    if not task:
+        await callback.answer(
+            "❌ Задача не найдена.",
+            show_alert=True,
+        )
+        return
+
+    if task["assignee_telegram_id"] != callback.from_user.id:
+        await callback.answer(
+            "❌ Эта задача назначена не вам.",
+            show_alert=True,
+        )
+        return
+
+    await callback.answer()
+
+    text = create_task_card(task)
+
+    if task["photo_file_id"]:
+        await callback.message.answer_photo(
+            photo=task["photo_file_id"],
+            caption=text,
+            reply_markup=(
+                create_active_task_keyboard(task_id)
+                if task["status"] == "accepted"
+                else create_task_accept_keyboard(task_id)
+            ),
+        )
+    else:
+        await callback.message.answer(
+            text,
+            reply_markup=(
+                create_active_task_keyboard(task_id)
+                if task["status"] == "accepted"
+                else create_task_accept_keyboard(task_id)
+            ),
+        )
+
+
+@router.callback_query(
+    F.data.startswith("task:complete:")
+)
+async def task_complete_handler(callback: CallbackQuery):
+    task_id = int(callback.data.split(":")[-1])
+    task = get_task(task_id)
+
+    if not task:
+        await callback.answer(
+            "❌ Задача не найдена.",
+            show_alert=True,
+        )
+        return
+
+    if task["assignee_telegram_id"] != callback.from_user.id:
+        await callback.answer(
+            "❌ Эта задача назначена не вам.",
+            show_alert=True,
+        )
+        return
+
+    if task["status"] != "accepted":
+        await callback.answer(
+            "❌ Задачу нельзя завершить.",
+            show_alert=True,
+        )
+        return
+
+    complete_task(task_id)
+
+    await callback.answer("✅ Задача выполнена!")
+
+    await callback.message.edit_reply_markup(
+        reply_markup=None,
+    )
+
+    await callback.bot.send_message(
+        chat_id=task["creator_telegram_id"],
+        text=(
+            f"🎉 Задача #{task_id} выполнена!\n\n"
+            f"👤 Исполнитель: "
+            f"{USERS.get(callback.from_user.id, callback.from_user.full_name)}"
+        ),
+    )
+
+
+@router.callback_query(
+    F.data.startswith("task:cancel:")
+)
+async def task_cancel_handler(callback: CallbackQuery):
+    task_id = int(callback.data.split(":")[-1])
+    task = get_task(task_id)
+
+    if not task:
+        await callback.answer(
+            "❌ Задача не найдена.",
+            show_alert=True,
+        )
+        return
+
+    if task["assignee_telegram_id"] != callback.from_user.id:
+        await callback.answer(
+            "❌ Эта задача назначена не вам.",
+            show_alert=True,
+        )
+        return
+
+    if task["status"] not in (
+        "pending_acceptance",
+        "accepted",
+    ):
+        await callback.answer(
+            "❌ Задачу уже нельзя отменить.",
+            show_alert=True,
+        )
+        return
+
+    cancel_task(task_id)
+
+    await callback.answer("❌ Задача отменена.")
+
+    await callback.message.edit_reply_markup(
+        reply_markup=None,
+    )
+
+    await callback.bot.send_message(
+        chat_id=task["creator_telegram_id"],
+        text=(
+            f"❌ Задача #{task_id} отменена.\n\n"
+            f"👤 Исполнитель: "
+            f"{USERS.get(callback.from_user.id, callback.from_user.full_name)}"
         ),
     )

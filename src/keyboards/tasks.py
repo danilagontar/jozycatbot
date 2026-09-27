@@ -95,3 +95,26 @@ def create_active_task_keyboard(task_id):
             ],
         ]
     )
+
+
+def create_tasks_list_keyboard(tasks):
+    buttons = []
+
+    for task in tasks:
+        text = task["text"]
+
+        if len(text) > 35:
+            text = f"{text[:35]}..."
+
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text=f"📋 #{task['id']} — {text}",
+                    callback_data=f"task:view:{task['id']}",
+                )
+            ]
+        )
+
+    return InlineKeyboardMarkup(
+        inline_keyboard=buttons
+    )

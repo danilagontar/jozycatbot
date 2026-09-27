@@ -28,6 +28,10 @@ async def set_commands(bot: Bot):
             command="task",
             description="Создать задачу",
         ),
+        BotCommand(
+            command="mytasks",
+            description="Мои активные задачи",
+        ),
     ]
 
     await bot.set_my_commands(commands)
