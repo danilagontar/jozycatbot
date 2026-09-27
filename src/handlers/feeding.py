@@ -4,6 +4,7 @@ from aiogram import Router
 from aiogram.filters import Command
 from aiogram.types import CallbackQuery, Message, ReplyKeyboardRemove
 
+from config import ALLOWED_USER_IDS
 from database import (
     create_chat,
     get_all_chats,
@@ -17,6 +18,10 @@ from services.feeding import (
 )
 
 router = Router()
+
+
+def is_user_allowed(user_id):
+    return user_id in ALLOWED_USER_IDS
 
 
 def format_time(value):
@@ -88,6 +93,9 @@ async def send_feeding_message(message: Message):
 
 @router.message(Command("start"))
 async def start_handler(message: Message):
+    if not is_user_allowed(message.from_user.id):
+        return
+
     await message.answer(
         "🐱 Привет!\n\n"
         "Это бот для отметки кормления Жози.\n"
@@ -99,11 +107,17 @@ async def start_handler(message: Message):
 
 @router.message(Command("feed"))
 async def feed_handler(message: Message):
+    if not is_user_allowed(message.from_user.id):
+        return
+
     await send_feeding_message(message)
 
 
 @router.message(Command("delete"))
 async def delete_handler(message: Message):
+    if not is_user_allowed(message.from_user.id):
+        return
+
     feeding = delete_last_feeding()
 
     if not feeding:
@@ -126,6 +140,10 @@ async def delete_handler(message: Message):
     lambda callback: callback.data == "feeding:feed"
 )
 async def feed_button_handler(callback: CallbackQuery):
+    if not is_user_allowed(callback.from_user.id):
+        await callback.answer()
+        return
+
     user = callback.from_user
 
     result = feed_cat(
@@ -158,10 +176,3 @@ async def feed_button_handler(callback: CallbackQuery):
     await callback.message.answer(
         f"🐱 Жозю покормили {period_name} в {time}."
     )
-
-
-@router.callback_query(
-    lambda callback: callback.data == "feeding:status"
-)
-async def status_button_handler(callback: CallbackQuery):
-    await callback.answer()
