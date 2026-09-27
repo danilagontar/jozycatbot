@@ -18,6 +18,8 @@ def format_time(value):
 
 @router.message(lambda message: message.text == "🐱 Покормить")
 async def feed_handler(message: Message):
+    await message.delete()
+
     user = message.from_user
 
     result = feed_cat(
@@ -52,7 +54,7 @@ async def feed_handler(message: Message):
     and message.text.startswith(("🌅 Утро", "🌙 Вечер"))
 )
 async def status_handler(message: Message):
-    return
+    await message.delete()
 
 
 async def send_feeding_message(message: Message):
