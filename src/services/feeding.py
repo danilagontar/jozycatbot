@@ -2,12 +2,11 @@ import sqlite3
 from datetime import datetime
 
 from config import (
-    EVENING_END,
     EVENING_START,
     MORNING_END,
     MORNING_START,
 )
-from database import get_connection
+from database import create_user, get_connection
 
 
 def get_current_period():
@@ -16,60 +15,10 @@ def get_current_period():
     if MORNING_START <= current_time < MORNING_END:
         return "morning"
 
-    if EVENING_START <= current_time <= EVENING_END:
+    if EVENING_START <= current_time:
         return "evening"
 
     return None
-
-
-def create_user(user_id, name):
-    connection = get_connection()
-
-    connection.execute(
-        """
-        INSERT INTO users (telegram_id, name, created_at)
-        VALUES (?, ?, ?)
-        ON CONFLICT(telegram_id)
-        DO UPDATE SET name = excluded.name
-        """,
-        (
-            user_id,
-            name,
-            datetime.now().isoformat(timespec="seconds"),
-        ),
-    )
-
-    connection.commit()
-    connection.close()
-
-
-def create_chat(chat_id, chat_type, title):
-    connection = get_connection()
-
-    connection.execute(
-        """
-        INSERT INTO chats (
-            telegram_chat_id,
-            type,
-            title,
-            created_at
-        )
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT(telegram_chat_id)
-        DO UPDATE SET
-            type = excluded.type,
-            title = excluded.title
-        """,
-        (
-            chat_id,
-            chat_type,
-            title,
-            datetime.now().isoformat(timespec="seconds"),
-        ),
-    )
-
-    connection.commit()
-    connection.close()
 
 
 def feed_cat(user_id, user_name):
@@ -177,63 +126,21 @@ def get_today_feedings():
     return feedings
 
 
-def get_status_button_text():
+def get_feeding_status():
     feedings = get_today_feedings()
 
-    morning = None
-    evening = None
+    status = {
+        "morning": None,
+        "evening": None,
+    }
 
     for feeding in feedings:
-        if feeding["period"] == "morning":
-            morning = feeding
+        period = feeding["period"]
 
-        if feeding["period"] == "evening":
-            evening = feeding
+        if period in status:
+            status[period] = feeding
 
-    current_period = get_current_period()
-
-    if current_period == "morning":
-        if morning:
-            time = datetime.fromisoformat(
-                morning["fed_at"]
-            ).strftime("%H:%M")
-
-            return f"🌅 Утро — {time}"
-
-        return "🌅 Утро — ❌"
-
-    if current_period == "evening":
-        if evening:
-            time = datetime.fromisoformat(
-                evening["fed_at"]
-            ).strftime("%H:%M")
-
-            return f"🌙 Вечер — {time}"
-
-        if morning:
-            time = datetime.fromisoformat(
-                morning["fed_at"]
-            ).strftime("%H:%M")
-
-            return f"🌅 Утро — {time}"
-
-        return "🌙 Вечер — ❌"
-
-    if evening:
-        time = datetime.fromisoformat(
-            evening["fed_at"]
-        ).strftime("%H:%M")
-
-        return f"🌙 Вечер — {time}"
-
-    if morning:
-        time = datetime.fromisoformat(
-            morning["fed_at"]
-        ).strftime("%H:%M")
-
-        return f"🌅 Утро — {time}"
-
-    return "🐱 Покормить"
+    return status
 
 
 def delete_last_feeding():
@@ -241,17 +148,22 @@ def delete_last_feeding():
 
     feeding = connection.execute(
         """
-        SELECT id
+        SELECT
+            feedings.id,
+            feedings.period,
+            feedings.fed_at,
+            users.name
         FROM feedings
-        WHERE cat_id = 1
-        ORDER BY id DESC
+        JOIN users ON users.id = feedings.user_id
+        WHERE feedings.cat_id = 1
+        ORDER BY feedings.id DESC
         LIMIT 1
         """
     ).fetchone()
 
     if not feeding:
         connection.close()
-        return False
+        return None
 
     connection.execute(
         """
@@ -264,4 +176,4 @@ def delete_last_feeding():
     connection.commit()
     connection.close()
 
-    return True
+    return feeding

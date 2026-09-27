@@ -27,6 +27,7 @@ def init_database():
             telegram_chat_id INTEGER UNIQUE NOT NULL,
             type TEXT NOT NULL,
             title TEXT,
+            keyboard_message_id INTEGER,
             created_at TEXT NOT NULL
         )
     """)
@@ -54,31 +55,35 @@ def init_database():
 
     connection.execute("""
         INSERT OR IGNORE INTO cats (id, name)
-        VALUES (1, 'Jozy')
+        VALUES (1, 'Жозю')
     """)
 
     connection.commit()
     connection.close()
 
 
-def save_user(telegram_id, name, created_at):
+def create_user(telegram_id, name):
     connection = get_connection()
 
     connection.execute(
         """
-        INSERT INTO users (telegram_id, name, created_at)
-        VALUES (?, ?, ?)
+        INSERT INTO users (
+            telegram_id,
+            name,
+            created_at
+        )
+        VALUES (?, ?, datetime('now'))
         ON CONFLICT(telegram_id)
         DO UPDATE SET name = excluded.name
         """,
-        (telegram_id, name, created_at),
+        (telegram_id, name),
     )
 
     connection.commit()
     connection.close()
 
 
-def save_chat(telegram_chat_id, chat_type, title, created_at):
+def create_chat(chat_id, chat_type, title):
     connection = get_connection()
 
     connection.execute(
@@ -89,17 +94,35 @@ def save_chat(telegram_chat_id, chat_type, title, created_at):
             title,
             created_at
         )
-        VALUES (?, ?, ?, ?)
+        VALUES (?, ?, ?, datetime('now'))
         ON CONFLICT(telegram_chat_id)
         DO UPDATE SET
             type = excluded.type,
             title = excluded.title
         """,
         (
-            telegram_chat_id,
+            chat_id,
             chat_type,
             title,
-            created_at,
+        ),
+    )
+
+    connection.commit()
+    connection.close()
+
+
+def save_keyboard_message_id(chat_id, message_id):
+    connection = get_connection()
+
+    connection.execute(
+        """
+        UPDATE chats
+        SET keyboard_message_id = ?
+        WHERE telegram_chat_id = ?
+        """,
+        (
+            message_id,
+            chat_id,
         ),
     )
 
@@ -112,8 +135,11 @@ def get_all_chats():
 
     chats = connection.execute(
         """
-        SELECT telegram_chat_id
+        SELECT
+            telegram_chat_id,
+            keyboard_message_id
         FROM chats
+        WHERE keyboard_message_id IS NOT NULL
         """
     ).fetchall()
 

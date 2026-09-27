@@ -1,14 +1,14 @@
-from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 
-def create_feeding_keyboard(status_text: str) -> ReplyKeyboardMarkup:
-    return ReplyKeyboardMarkup(
-        keyboard=[
+def create_feeding_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
             [
-                KeyboardButton(text="🐱 Покормить"),
-                KeyboardButton(text=status_text),
+                InlineKeyboardButton(
+                    text="🐱 Покормить",
+                    callback_data="feeding:feed",
+                )
             ]
-        ],
-        resize_keyboard=True,
-        is_persistent=True,
+        ]
     )

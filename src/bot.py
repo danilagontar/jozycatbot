@@ -2,16 +2,30 @@ import asyncio
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.session.aiohttp import AiohttpSession
-from aiogram.filters import CommandStart
-from aiogram.types import Message
+from aiogram.types import BotCommand
 
 from config import BOT_TOKEN, PROXY_URL
 from database import init_database
-from handlers.feeding import router, send_feeding_message
+from handlers.feeding import router
 
 
-async def start_handler(message: Message):
-    await send_feeding_message(message)
+async def set_commands(bot: Bot):
+    commands = [
+        BotCommand(
+            command="start",
+            description="Приветствие",
+        ),
+        BotCommand(
+            command="feed",
+            description="Кормление Жози",
+        ),
+        BotCommand(
+            command="delete",
+            description="Удалить последнее кормление",
+        ),
+    ]
+
+    await bot.set_my_commands(commands)
 
 
 async def main():
@@ -20,7 +34,11 @@ async def main():
 
     init_database()
 
-    session = AiohttpSession(proxy=PROXY_URL) if PROXY_URL else None
+    session = (
+        AiohttpSession(proxy=PROXY_URL)
+        if PROXY_URL
+        else None
+    )
 
     bot = Bot(
         token=BOT_TOKEN,
@@ -31,7 +49,7 @@ async def main():
 
     dp.include_router(router)
 
-    dp.message.register(start_handler, CommandStart())
+    await set_commands(bot)
 
     try:
         await dp.start_polling(bot)
