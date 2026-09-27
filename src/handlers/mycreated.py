@@ -3,7 +3,7 @@ from datetime import datetime
 from aiogram import F, Router
 from aiogram.types import Message
 
-from keyboards.tasks import create_tasks_list_keyboard
+from keyboards.tasks import create_created_tasks_list_keyboard
 from services.tasks import get_created_tasks
 
 
@@ -43,7 +43,7 @@ async def my_created_tasks_handler(message: Message):
 
     await message.answer(
         "📋 Созданные тобой задачи:",
-        reply_markup=create_tasks_list_keyboard(
+        reply_markup=create_created_tasks_list_keyboard(
             tasks,
             get_created_task_status,
         ),
