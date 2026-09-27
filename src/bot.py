@@ -10,6 +10,8 @@ from handlers.feeding import router as feeding_router
 from handlers.tasks import router as tasks_router
 from services.task_reminders import check_task_reminders
 from database import init_database, sync_user_names
+from handlers import all_tasks
+from handlers.all_tasks import router as all_tasks_router
 
 async def set_commands(bot: Bot):
     commands = [
@@ -77,6 +79,7 @@ async def main():
 
     dp.include_router(feeding_router)
     dp.include_router(tasks_router)
+    dp.include_router(all_tasks_router)
 
     await set_commands(bot)
 

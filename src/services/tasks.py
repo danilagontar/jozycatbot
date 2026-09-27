@@ -629,3 +629,37 @@ def get_weekly_task_top():
     )
 
     return result, monday, next_monday
+
+
+def get_all_tasks(limit=15):
+    connection = get_connection()
+
+    tasks = connection.execute(
+        """
+        SELECT
+            tasks.id,
+            tasks.text,
+            tasks.status,
+            tasks.created_at,
+            tasks.deadline,
+            tasks.accepted_at,
+            tasks.completed_at,
+            tasks.cancelled_at,
+            creator.telegram_id AS creator_telegram_id,
+            creator.name AS creator_name,
+            assignee.telegram_id AS assignee_telegram_id,
+            assignee.name AS assignee_name
+        FROM tasks
+        JOIN users AS creator
+            ON creator.id = tasks.creator_user_id
+        JOIN users AS assignee
+            ON assignee.id = tasks.assignee_user_id
+        ORDER BY tasks.id DESC
+        LIMIT ?
+        """,
+        (limit,),
+    ).fetchall()
+
+    connection.close()
+
+    return tasks
