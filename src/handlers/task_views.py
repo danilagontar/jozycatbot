@@ -126,6 +126,13 @@ async def my_tasks_handler(
         message.from_user.id
     )
 
+    tasks = sorted(
+        tasks,
+        key=lambda task: datetime.fromisoformat(
+            task["deadline"]
+        ),
+    )
+
     if not tasks:
         await message.answer(
             "📋 У тебя сейчас нет активных задач."

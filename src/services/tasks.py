@@ -2,6 +2,12 @@ from datetime import datetime, timedelta
 
 from database import create_user, get_connection
 
+USERS = {
+    2008737156: "Артем",
+    431869701: "Даня",
+    540028179: "Мама",
+    982526654: "Женя",
+}
 
 def create_task(
     creator_telegram_id,
@@ -38,6 +44,11 @@ def create_task(
         (assignee_telegram_id,),
     ).fetchone()
 
+    assignee_name = USERS.get(
+        assignee_telegram_id,
+        "Пользователь",
+    )
+
     if not assignee:
         connection.execute(
             """
@@ -50,7 +61,7 @@ def create_task(
             """,
             (
                 assignee_telegram_id,
-                "Пользователь",
+                assignee_name,
             ),
         )
 
@@ -64,6 +75,20 @@ def create_task(
             """,
             (assignee_telegram_id,),
         ).fetchone()
+    else:
+        connection.execute(
+            """
+            UPDATE users
+            SET name = ?
+            WHERE telegram_id = ?
+            """,
+            (
+                assignee_name,
+                assignee_telegram_id,
+            ),
+        )
+
+        connection.commit()
 
     cursor = connection.execute(
         """
