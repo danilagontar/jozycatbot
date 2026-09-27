@@ -21,9 +21,7 @@ from services.tasks import (
     get_user_tasks,
 )
 
-
 router = Router()
-
 
 USERS = {
     2008737156: "Артем",
@@ -32,14 +30,12 @@ USERS = {
     982526654: "Женя",
 }
 
-
 CREATOR_NAMES = {
     2008737156: "Артема",
     431869701: "Дани",
     540028179: "Мамы",
     982526654: "Жени",
 }
-
 
 MONTHS = {
     1: "января",
@@ -83,12 +79,28 @@ def truncate_task_text(text, max_words=20):
 
 
 def get_deadline_status(task):
-    created_at = datetime.fromisoformat(task["created_at"])
-    deadline = datetime.fromisoformat(task["deadline"])
+    if task["status"] == "pending_acceptance":
+        return "⏳"
+
+    if task["status"] in ("completed", "cancelled"):
+        return "❌"
+
+    if task["overdue_at"]:
+        return "❌"
+
+    if not task["accepted_at"]:
+        return "⏳"
+
+    accepted_at = datetime.fromisoformat(
+        task["accepted_at"]
+    )
+    deadline = datetime.fromisoformat(
+        task["deadline"]
+    )
     now = datetime.now()
 
     total_time = (
-        deadline - created_at
+        deadline - accepted_at
     ).total_seconds()
 
     remaining_time = (
@@ -96,10 +108,10 @@ def get_deadline_status(task):
     ).total_seconds()
 
     if remaining_time <= 0:
-        return "🔴"
+        return "❌"
 
     if total_time <= 0:
-        return "🔴"
+        return "❌"
 
     remaining_percent = (
         remaining_time / total_time
@@ -115,7 +127,9 @@ def get_deadline_status(task):
 
 
 def create_task_card(task):
-    deadline = datetime.fromisoformat(task["deadline"])
+    deadline = datetime.fromisoformat(
+        task["deadline"]
+    )
 
     status_names = {
         "pending_acceptance": "⏳ Ожидает принятия",
@@ -139,13 +153,21 @@ def create_task_card(task):
         f"{status_names.get(task['status'], task['status'])}"
     )
 
+    if task["overdue_at"]:
+        text += "\n\n⚠️ Срок истёк."
+
     return text
 
 
 @router.message(F.text == "/task")
-async def task_start_handler(message: Message, state: FSMContext):
+async def task_start_handler(
+    message: Message,
+    state: FSMContext,
+):
     await state.clear()
-    await state.set_state(TaskCreation.waiting_assignee)
+    await state.set_state(
+        TaskCreation.waiting_assignee
+    )
 
     await message.answer(
         "📋 Создание новой задачи\n\n"
@@ -162,7 +184,10 @@ async def task_assignee_handler(
     callback: CallbackQuery,
     state: FSMContext,
 ):
-    assignee_id = int(callback.data.split(":")[-1])
+    assignee_id = int(
+        callback.data.split(":")[-1]
+    )
+
     assignee_name = USERS.get(assignee_id)
 
     if not assignee_name:
@@ -176,14 +201,17 @@ async def task_assignee_handler(
         assignee_id=assignee_id,
         assignee_name=assignee_name,
     )
-    await state.set_state(TaskCreation.waiting_text)
+
+    await state.set_state(
+        TaskCreation.waiting_text
+    )
 
     await callback.answer()
 
     await callback.message.edit_text(
         f"👤 Задача для: {assignee_name}\n\n"
-        "📝 Напиши текст задачи или отправь фото "
-        "с подписью."
+        "📝 Напиши текст задачи или "
+        "отправь фото с подписью."
     )
 
 
@@ -209,7 +237,10 @@ async def task_text_handler(
         task_text=text or "",
         photo_file_id=photo_file_id,
     )
-    await state.set_state(TaskCreation.waiting_deadline)
+
+    await state.set_state(
+        TaskCreation.waiting_deadline
+    )
 
     await message.answer(
         "⏰ Выбери срок выполнения:",
@@ -239,14 +270,21 @@ async def task_deadline_handler(
             "ДД.ММ ЧЧ:ММ\n\n"
             "Например: 28.09 21:30"
         )
+
         return
 
     now = datetime.now()
 
     if deadline_type == "15m":
-        deadline = now + timedelta(minutes=15)
+        deadline = now
+        deadline_type_value = "relative"
+        deadline_minutes = 15
+
     elif deadline_type == "1h":
-        deadline = now + timedelta(hours=1)
+        deadline = now
+        deadline_type_value = "relative"
+        deadline_minutes = 60
+
     elif deadline_type == "today":
         deadline = now.replace(
             hour=23,
@@ -254,14 +292,22 @@ async def task_deadline_handler(
             second=59,
             microsecond=0,
         )
+        deadline_type_value = "absolute"
+        deadline_minutes = None
+
     elif deadline_type == "tomorrow":
         tomorrow = now + timedelta(days=1)
+
         deadline = tomorrow.replace(
             hour=23,
             minute=59,
             second=59,
             microsecond=0,
         )
+
+        deadline_type_value = "absolute"
+        deadline_minutes = None
+
     else:
         await callback.answer(
             "❌ Неизвестный срок.",
@@ -274,12 +320,16 @@ async def task_deadline_handler(
         callback.from_user,
         state,
         deadline,
+        deadline_type_value,
+        deadline_minutes,
     )
 
     await callback.answer()
 
 
-@router.message(TaskCreation.waiting_custom_deadline)
+@router.message(
+    TaskCreation.waiting_custom_deadline
+)
 async def task_custom_deadline_handler(
     message: Message,
     state: FSMContext,
@@ -320,6 +370,8 @@ async def task_custom_deadline_handler(
         message.from_user,
         state,
         deadline,
+        "absolute",
+        None,
     )
 
 
@@ -328,6 +380,8 @@ async def create_task_from_state(
     user,
     state: FSMContext,
     deadline,
+    deadline_type,
+    deadline_minutes,
 ):
     data = await state.get_data()
 
@@ -338,6 +392,8 @@ async def create_task_from_state(
         text=data["task_text"],
         photo_file_id=data["photo_file_id"],
         deadline=deadline,
+        deadline_type=deadline_type,
+        deadline_minutes=deadline_minutes,
     )
 
     task_text = data["task_text"]
@@ -345,7 +401,15 @@ async def create_task_from_state(
     assignee_name = data["assignee_name"]
     photo_file_id = data["photo_file_id"]
 
-    deadline_text = format_deadline(deadline)
+    if deadline_type == "relative":
+        if deadline_minutes == 15:
+            deadline_text = "через 15 минут"
+        elif deadline_minutes == 60:
+            deadline_text = "через 1 час"
+        else:
+            deadline_text = "после принятия"
+    else:
+        deadline_text = format_deadline(deadline)
 
     creator_name = CREATOR_NAMES.get(
         user.id,
@@ -367,13 +431,17 @@ async def create_task_from_state(
                 chat_id=assignee_id,
                 photo=photo_file_id,
                 caption=task_message,
-                reply_markup=create_task_accept_keyboard(task_id),
+                reply_markup=create_task_accept_keyboard(
+                    task_id
+                ),
             )
         else:
             await message.bot.send_message(
                 chat_id=assignee_id,
                 text=task_message,
-                reply_markup=create_task_accept_keyboard(task_id),
+                reply_markup=create_task_accept_keyboard(
+                    task_id
+                ),
             )
 
         await message.answer(
@@ -387,15 +455,21 @@ async def create_task_from_state(
         await message.answer(
             f"⚠️ Задача #{task_id} создана, "
             "но отправить её исполнителю не удалось.\n\n"
-            "Возможно, он ещё не запускал бота через /start."
+            "Возможно, он ещё не запускал бота "
+            "через /start."
         )
 
 
 @router.callback_query(
     F.data.startswith("task:accept:")
 )
-async def task_accept_handler(callback: CallbackQuery):
-    task_id = int(callback.data.split(":")[-1])
+async def task_accept_handler(
+    callback: CallbackQuery,
+):
+    task_id = int(
+        callback.data.split(":")[-1]
+    )
+
     task = get_task(task_id)
 
     if not task:
@@ -405,7 +479,10 @@ async def task_accept_handler(callback: CallbackQuery):
         )
         return
 
-    if task["assignee_telegram_id"] != callback.from_user.id:
+    if (
+        task["assignee_telegram_id"]
+        != callback.from_user.id
+    ):
         await callback.answer(
             "❌ Эта задача назначена не вам.",
             show_alert=True,
@@ -419,20 +496,38 @@ async def task_accept_handler(callback: CallbackQuery):
         )
         return
 
-    accept_task(task_id)
+    accepted = accept_task(task_id)
+
+    if not accepted:
+        await callback.answer(
+            "❌ Не удалось принять задачу.",
+            show_alert=True,
+        )
+        return
 
     await callback.message.edit_reply_markup(
-        reply_markup=create_active_task_keyboard(task_id),
+        reply_markup=create_active_task_keyboard(
+            task_id
+        ),
     )
 
-    await callback.answer("✅ Задача принята!")
+    await callback.answer(
+        "✅ Задача принята!"
+    )
 
-    task_text = truncate_task_text(task["text"])
+    task_text = truncate_task_text(
+        task["text"]
+    )
+
+    executor_name = USERS.get(
+        callback.from_user.id,
+        callback.from_user.full_name,
+    )
 
     await callback.bot.send_message(
         chat_id=task["creator_telegram_id"],
         text=(
-            f"✅ {USERS.get(callback.from_user.id, callback.from_user.full_name)} "
+            f"✅ {executor_name} "
             f"принял задачу #{task_id}.\n\n"
             f"📝 {task_text}"
         ),
@@ -440,8 +535,12 @@ async def task_accept_handler(callback: CallbackQuery):
 
 
 @router.message(F.text == "/mytasks")
-async def my_tasks_handler(message: Message):
-    tasks = get_user_tasks(message.from_user.id)
+async def my_tasks_handler(
+    message: Message,
+):
+    tasks = get_user_tasks(
+        message.from_user.id
+    )
 
     if not tasks:
         await message.answer(
@@ -461,8 +560,13 @@ async def my_tasks_handler(message: Message):
 @router.callback_query(
     F.data.startswith("task:view:")
 )
-async def task_view_handler(callback: CallbackQuery):
-    task_id = int(callback.data.split(":")[-1])
+async def task_view_handler(
+    callback: CallbackQuery,
+):
+    task_id = int(
+        callback.data.split(":")[-1]
+    )
+
     task = get_task(task_id)
 
     if not task:
@@ -472,7 +576,10 @@ async def task_view_handler(callback: CallbackQuery):
         )
         return
 
-    if task["assignee_telegram_id"] != callback.from_user.id:
+    if (
+        task["assignee_telegram_id"]
+        != callback.from_user.id
+    ):
         await callback.answer(
             "❌ Эта задача назначена не вам.",
             show_alert=True,
@@ -490,7 +597,9 @@ async def task_view_handler(callback: CallbackQuery):
             reply_markup=(
                 create_active_task_keyboard(task_id)
                 if task["status"] == "accepted"
-                else create_task_accept_keyboard(task_id)
+                else create_task_accept_keyboard(
+                    task_id
+                )
             ),
         )
     else:
@@ -499,7 +608,9 @@ async def task_view_handler(callback: CallbackQuery):
             reply_markup=(
                 create_active_task_keyboard(task_id)
                 if task["status"] == "accepted"
-                else create_task_accept_keyboard(task_id)
+                else create_task_accept_keyboard(
+                    task_id
+                )
             ),
         )
 
@@ -507,8 +618,13 @@ async def task_view_handler(callback: CallbackQuery):
 @router.callback_query(
     F.data.startswith("task:complete:")
 )
-async def task_complete_handler(callback: CallbackQuery):
-    task_id = int(callback.data.split(":")[-1])
+async def task_complete_handler(
+    callback: CallbackQuery,
+):
+    task_id = int(
+        callback.data.split(":")[-1]
+    )
+
     task = get_task(task_id)
 
     if not task:
@@ -518,7 +634,10 @@ async def task_complete_handler(callback: CallbackQuery):
         )
         return
 
-    if task["assignee_telegram_id"] != callback.from_user.id:
+    if (
+        task["assignee_telegram_id"]
+        != callback.from_user.id
+    ):
         await callback.answer(
             "❌ Эта задача назначена не вам.",
             show_alert=True,
@@ -534,20 +653,28 @@ async def task_complete_handler(callback: CallbackQuery):
 
     complete_task(task_id)
 
-    await callback.answer("✅ Задача выполнена!")
-
-    await callback.message.edit_reply_markup(
-        reply_markup=None,
+    await callback.answer(
+        "✅ Задача выполнена!"
     )
 
-    task_text = truncate_task_text(task["text"])
+    await callback.message.edit_reply_markup(
+        reply_markup=None
+    )
+
+    task_text = truncate_task_text(
+        task["text"]
+    )
+
+    executor_name = USERS.get(
+        callback.from_user.id,
+        callback.from_user.full_name,
+    )
 
     await callback.bot.send_message(
         chat_id=task["creator_telegram_id"],
         text=(
             f"🎉 Задача #{task_id} выполнена!\n\n"
-            f"👤 Исполнитель: "
-            f"{USERS.get(callback.from_user.id, callback.from_user.full_name)}\n\n"
+            f"👤 Исполнитель: {executor_name}\n\n"
             f"📝 {task_text}"
         ),
     )
@@ -556,8 +683,13 @@ async def task_complete_handler(callback: CallbackQuery):
 @router.callback_query(
     F.data.startswith("task:cancel:")
 )
-async def task_cancel_handler(callback: CallbackQuery):
-    task_id = int(callback.data.split(":")[-1])
+async def task_cancel_handler(
+    callback: CallbackQuery,
+):
+    task_id = int(
+        callback.data.split(":")[-1]
+    )
+
     task = get_task(task_id)
 
     if not task:
@@ -567,7 +699,10 @@ async def task_cancel_handler(callback: CallbackQuery):
         )
         return
 
-    if task["assignee_telegram_id"] != callback.from_user.id:
+    if (
+        task["assignee_telegram_id"]
+        != callback.from_user.id
+    ):
         await callback.answer(
             "❌ Эта задача назначена не вам.",
             show_alert=True,
@@ -586,20 +721,28 @@ async def task_cancel_handler(callback: CallbackQuery):
 
     cancel_task(task_id)
 
-    await callback.answer("❌ Задача отменена.")
-
-    await callback.message.edit_reply_markup(
-        reply_markup=None,
+    await callback.answer(
+        "❌ Задача отменена."
     )
 
-    task_text = truncate_task_text(task["text"])
+    await callback.message.edit_reply_markup(
+        reply_markup=None
+    )
+
+    task_text = truncate_task_text(
+        task["text"]
+    )
+
+    executor_name = USERS.get(
+        callback.from_user.id,
+        callback.from_user.full_name,
+    )
 
     await callback.bot.send_message(
         chat_id=task["creator_telegram_id"],
         text=(
             f"❌ Задача #{task_id} отменена.\n\n"
-            f"👤 Исполнитель: "
-            f"{USERS.get(callback.from_user.id, callback.from_user.full_name)}\n\n"
+            f"👤 Исполнитель: {executor_name}\n\n"
             f"📝 {task_text}"
         ),
     )

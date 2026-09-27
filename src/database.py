@@ -62,6 +62,8 @@ def init_database():
             photo_file_id TEXT,
             created_at TEXT NOT NULL,
             deadline TEXT NOT NULL,
+            deadline_type TEXT NOT NULL DEFAULT 'absolute',
+            deadline_minutes INTEGER,
             status TEXT NOT NULL DEFAULT 'pending_acceptance',
             accepted_at TEXT,
             completed_at TEXT,
@@ -133,6 +135,23 @@ def init_database():
             ALTER TABLE tasks
             ADD COLUMN overdue_notified INTEGER
             NOT NULL DEFAULT 0
+            """
+        )
+
+    if "deadline_type" not in columns:
+        connection.execute(
+            """
+            ALTER TABLE tasks
+            ADD COLUMN deadline_type TEXT
+            NOT NULL DEFAULT 'absolute'
+            """
+        )
+
+    if "deadline_minutes" not in columns:
+        connection.execute(
+            """
+            ALTER TABLE tasks
+            ADD COLUMN deadline_minutes INTEGER
             """
         )
 

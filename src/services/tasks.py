@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from database import create_user, get_connection
 
@@ -10,6 +10,8 @@ def create_task(
     text,
     photo_file_id,
     deadline,
+    deadline_type,
+    deadline_minutes,
 ):
     create_user(
         telegram_id=creator_telegram_id,
@@ -72,9 +74,11 @@ def create_task(
             photo_file_id,
             created_at,
             deadline,
+            deadline_type,
+            deadline_minutes,
             status
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             creator["id"],
@@ -83,6 +87,8 @@ def create_task(
             photo_file_id,
             datetime.now().isoformat(timespec="seconds"),
             deadline.isoformat(timespec="seconds"),
+            deadline_type,
+            deadline_minutes,
             "pending_acceptance",
         ),
     )
@@ -187,10 +193,7 @@ def get_reminder_tasks():
         FROM tasks
         JOIN users AS assignee
             ON assignee.id = tasks.assignee_user_id
-        WHERE tasks.status IN (
-            'pending_acceptance',
-            'accepted'
-        )
+        WHERE tasks.status = 'accepted'
         ORDER BY tasks.deadline
         """
     ).fetchall()
@@ -256,23 +259,76 @@ def mark_overdue(task_id):
 def accept_task(task_id):
     connection = get_connection()
 
-    connection.execute(
+    task = connection.execute(
         """
-        UPDATE tasks
-        SET
-            status = 'accepted',
-            accepted_at = ?
+        SELECT
+            deadline_type,
+            deadline_minutes
+        FROM tasks
         WHERE id = ?
           AND status = 'pending_acceptance'
         """,
-        (
-            datetime.now().isoformat(timespec="seconds"),
-            task_id,
-        ),
-    )
+        (task_id,),
+    ).fetchone()
+
+    if not task:
+        connection.close()
+        return False
+
+    accepted_at = datetime.now()
+
+    if (
+        task["deadline_type"] == "relative"
+        and task["deadline_minutes"]
+    ):
+        deadline = accepted_at + timedelta(
+            minutes=task["deadline_minutes"]
+        )
+
+        connection.execute(
+            """
+            UPDATE tasks
+            SET
+                status = 'accepted',
+                accepted_at = ?,
+                deadline = ?,
+                overdue_at = NULL,
+                reminder_20_sent = 0,
+                reminder_10_sent = 0,
+                overdue_notified = 0
+            WHERE id = ?
+              AND status = 'pending_acceptance'
+            """,
+            (
+                accepted_at.isoformat(timespec="seconds"),
+                deadline.isoformat(timespec="seconds"),
+                task_id,
+            ),
+        )
+    else:
+        connection.execute(
+            """
+            UPDATE tasks
+            SET
+                status = 'accepted',
+                accepted_at = ?,
+                overdue_at = NULL,
+                reminder_20_sent = 0,
+                reminder_10_sent = 0,
+                overdue_notified = 0
+            WHERE id = ?
+              AND status = 'pending_acceptance'
+            """,
+            (
+                accepted_at.isoformat(timespec="seconds"),
+                task_id,
+            ),
+        )
 
     connection.commit()
     connection.close()
+
+    return True
 
 
 def complete_task(task_id):

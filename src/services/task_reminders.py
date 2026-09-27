@@ -73,7 +73,7 @@ def get_reminder_message(task, reminder_type, remaining_seconds):
     return (
         f"⚠️ Задача #{task['id']} просрочена!\n\n"
         f"📝 {task_text}\n"
-        f"⏰ Срок уже истёк."
+        f"⏰ Срок истёк."
     )
 
 
@@ -82,15 +82,18 @@ async def check_task_reminders(bot):
     now = datetime.now()
 
     for task in tasks:
-        created_at = datetime.fromisoformat(
-            task["created_at"]
+        if not task["accepted_at"]:
+            continue
+
+        accepted_at = datetime.fromisoformat(
+            task["accepted_at"]
         )
         deadline = datetime.fromisoformat(
             task["deadline"]
         )
 
         total_seconds = (
-            deadline - created_at
+                deadline - accepted_at
         ).total_seconds()
 
         remaining_seconds = (
