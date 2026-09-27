@@ -1,12 +1,5 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-
-
-CREATOR_NAMES = {
-    2008737156: "Артема",
-    431869701: "Дани",
-    540028179: "Мамы",
-    982526654: "Жени",
-}
+from config import ASSIGNEE_NAMES, CREATOR_NAMES
 
 
 def create_assignee_keyboard():
@@ -189,12 +182,17 @@ def create_created_tasks_list_keyboard(tasks, get_status):
 
         status = get_status(task)
 
+        assignee_name = ASSIGNEE_NAMES.get(
+            task["assignee_telegram_id"],
+            task["assignee_name"],
+        )
+
         buttons.append(
             [
                 InlineKeyboardButton(
                     text=(
                         f"{status} #{task['id']} — "
-                        f"Для {task['assignee_name']} — {text}"
+                        f"Для {assignee_name} — {text}"
                     ),
                     callback_data=f"created_task:view:{task['id']}",
                 )
