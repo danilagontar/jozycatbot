@@ -34,19 +34,26 @@ def get_deadline_status(task):
     if task["overdue_at"]:
         return "❌"
 
-    if not task["accepted_at"]:
-        return "⏳"
-
-    accepted_at = datetime.fromisoformat(
-        task["accepted_at"]
-    )
     deadline = datetime.fromisoformat(
         task["deadline"]
     )
+
+    if task["deadline_type"] == "relative":
+        if not task["accepted_at"]:
+            return "⏳"
+
+        start_time = datetime.fromisoformat(
+            task["accepted_at"]
+        )
+    else:
+        start_time = datetime.fromisoformat(
+            task["created_at"]
+        )
+
     now = datetime.now()
 
     total_time = (
-        deadline - accepted_at
+        deadline - start_time
     ).total_seconds()
 
     remaining_time = (

@@ -112,6 +112,7 @@ async def complete_task_handler(
         chat_id=task["creator_telegram_id"],
         text=(
             f"✅ Задача #{task_id} выполнена!\n\n"
+            f"👤 Для: {task['assignee_name']}\n\n"
             f"📝 {task['text']}"
         ),
     )
@@ -160,6 +161,7 @@ async def cancel_task_handler(
         chat_id=task["creator_telegram_id"],
         text=(
             f"❌ Задача #{task_id} отменена.\n\n"
+            f"👤 Для: {task['assignee_name']}\n\n"
             f"📝 {task['text']}"
         ),
     )

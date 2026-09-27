@@ -1,11 +1,26 @@
 from datetime import datetime
 
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+
 from services.tasks import (
     get_reminder_tasks,
     mark_overdue,
     mark_reminder_10_sent,
     mark_reminder_20_sent,
 )
+
+
+def create_reminder_keyboard(task_id):
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="📋 Открыть задачу",
+                    callback_data=f"task:view:{task_id}",
+                )
+            ]
+        ]
+    )
 
 
 def format_remaining_time(seconds):
@@ -88,19 +103,24 @@ async def check_task_reminders(bot):
     now = datetime.now()
 
     for task in tasks:
-        if not task["accepted_at"]:
-            continue
-
-        accepted_at = datetime.fromisoformat(
-            task["accepted_at"]
-        )
-
         deadline = datetime.fromisoformat(
             task["deadline"]
         )
 
+        if task["deadline_type"] == "relative":
+            if not task["accepted_at"]:
+                continue
+
+            start_time = datetime.fromisoformat(
+                task["accepted_at"]
+            )
+        else:
+            start_time = datetime.fromisoformat(
+                task["created_at"]
+            )
+
         total_seconds = (
-            deadline - accepted_at
+            deadline - start_time
         ).total_seconds()
 
         remaining_seconds = (
@@ -108,6 +128,28 @@ async def check_task_reminders(bot):
         ).total_seconds()
 
         if total_seconds <= 0:
+            if (
+                remaining_seconds <= 0
+                and not task["overdue_notified"]
+            ):
+                try:
+                    await bot.send_message(
+                        chat_id=task["assignee_telegram_id"],
+                        text=get_reminder_message(
+                            task,
+                            "overdue",
+                            remaining_seconds,
+                        ),
+                        reply_markup=create_reminder_keyboard(
+                            task["id"]
+                        ),
+                    )
+
+                    mark_overdue(task["id"])
+
+                except Exception:
+                    pass
+
             continue
 
         elapsed_ratio = (
@@ -126,6 +168,9 @@ async def check_task_reminders(bot):
                         task,
                         "20",
                         remaining_seconds,
+                    ),
+                    reply_markup=create_reminder_keyboard(
+                        task["id"]
                     ),
                 )
 
@@ -147,6 +192,9 @@ async def check_task_reminders(bot):
                         "10",
                         remaining_seconds,
                     ),
+                    reply_markup=create_reminder_keyboard(
+                        task["id"]
+                    ),
                 )
 
                 mark_reminder_10_sent(task["id"])
@@ -165,6 +213,9 @@ async def check_task_reminders(bot):
                         task,
                         "overdue",
                         remaining_seconds,
+                    ),
+                    reply_markup=create_reminder_keyboard(
+                        task["id"]
                     ),
                 )
 

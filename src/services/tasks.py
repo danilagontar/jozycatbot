@@ -2,12 +2,14 @@ from datetime import datetime, timedelta
 
 from database import create_user, get_connection
 
+
 USERS = {
     2008737156: "Артем",
     431869701: "Даня",
     540028179: "Мама",
     982526654: "Женя",
 }
+
 
 def create_task(
     creator_telegram_id,
@@ -19,6 +21,16 @@ def create_task(
     deadline_type,
     deadline_minutes,
 ):
+    creator_name = USERS.get(
+        creator_telegram_id,
+        creator_name,
+    )
+
+    assignee_name = USERS.get(
+        assignee_telegram_id,
+        "Пользователь",
+    )
+
     create_user(
         telegram_id=creator_telegram_id,
         name=creator_name,
@@ -43,11 +55,6 @@ def create_task(
         """,
         (assignee_telegram_id,),
     ).fetchone()
-
-    assignee_name = USERS.get(
-        assignee_telegram_id,
-        "Пользователь",
-    )
 
     if not assignee:
         connection.execute(
@@ -172,7 +179,7 @@ def get_user_tasks(telegram_id):
               'pending_acceptance',
               'accepted'
           )
-        ORDER BY tasks.deadline
+        ORDER BY tasks.deadline ASC
         """,
         (telegram_id,),
     ).fetchall()
@@ -197,7 +204,7 @@ def get_created_tasks(telegram_id):
         JOIN users AS assignee
             ON assignee.id = tasks.assignee_user_id
         WHERE creator.telegram_id = ?
-        ORDER BY tasks.deadline
+        ORDER BY tasks.deadline ASC
         """,
         (telegram_id,),
     ).fetchall()
@@ -219,7 +226,7 @@ def get_reminder_tasks():
         JOIN users AS assignee
             ON assignee.id = tasks.assignee_user_id
         WHERE tasks.status = 'accepted'
-        ORDER BY tasks.deadline
+        ORDER BY tasks.deadline ASC
         """
     ).fetchall()
 
