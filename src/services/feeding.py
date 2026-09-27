@@ -1,3 +1,4 @@
+import sqlite3
 from datetime import datetime
 
 from config import (
@@ -21,34 +22,48 @@ def get_current_period():
     return None
 
 
-def get_user(user_id):
-    connection = get_connection()
-
-    user = connection.execute(
-        """
-        SELECT *
-        FROM users
-        WHERE telegram_id = ?
-        """,
-        (user_id,),
-    ).fetchone()
-
-    connection.close()
-
-    return user
-
-
 def create_user(user_id, name):
     connection = get_connection()
 
     connection.execute(
         """
-        INSERT OR IGNORE INTO users (telegram_id, name, created_at)
+        INSERT INTO users (telegram_id, name, created_at)
         VALUES (?, ?, ?)
+        ON CONFLICT(telegram_id)
+        DO UPDATE SET name = excluded.name
         """,
         (
             user_id,
             name,
+            datetime.now().isoformat(timespec="seconds"),
+        ),
+    )
+
+    connection.commit()
+    connection.close()
+
+
+def create_chat(chat_id, chat_type, title):
+    connection = get_connection()
+
+    connection.execute(
+        """
+        INSERT INTO chats (
+            telegram_chat_id,
+            type,
+            title,
+            created_at
+        )
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(telegram_chat_id)
+        DO UPDATE SET
+            type = excluded.type,
+            title = excluded.title
+        """,
+        (
+            chat_id,
+            chat_type,
+            title,
             datetime.now().isoformat(timespec="seconds"),
         ),
     )
@@ -112,7 +127,7 @@ def feed_cat(user_id, user_name):
             "fed_at": fed_at,
         }
 
-    except Exception:
+    except sqlite3.IntegrityError:
         connection.rollback()
 
         feeding = connection.execute(
@@ -219,3 +234,34 @@ def get_status_button_text():
         return f"🌅 Утро — {time}"
 
     return "🐱 Покормить"
+
+
+def delete_last_feeding():
+    connection = get_connection()
+
+    feeding = connection.execute(
+        """
+        SELECT id
+        FROM feedings
+        WHERE cat_id = 1
+        ORDER BY id DESC
+        LIMIT 1
+        """
+    ).fetchone()
+
+    if not feeding:
+        connection.close()
+        return False
+
+    connection.execute(
+        """
+        DELETE FROM feedings
+        WHERE id = ?
+        """,
+        (feeding["id"],),
+    )
+
+    connection.commit()
+    connection.close()
+
+    return True
