@@ -2,7 +2,7 @@ from datetime import datetime
 
 from aiogram import Router
 from aiogram.filters import Command
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, Message, ReplyKeyboardRemove
 
 from database import (
     create_chat,
@@ -28,13 +28,13 @@ def create_feeding_text():
 
     if status["morning"]:
         morning_time = format_time(status["morning"]["fed_at"])
-        morning_text = f"🌅 Утро — ✓ {morning_time}"
+        morning_text = f"🌅 Утро — ✅ {morning_time}"
     else:
         morning_text = "🌅 Утро — ❌"
 
     if status["evening"]:
         evening_time = format_time(status["evening"]["fed_at"])
-        evening_text = f"🌙 Вечер — ✓ {evening_time}"
+        evening_text = f"🌙 Вечер — ✅ {evening_time}"
     else:
         evening_text = "🌙 Вечер — ❌"
 
@@ -92,7 +92,8 @@ async def start_handler(message: Message):
         "🐱 Привет!\n\n"
         "Это бот для отметки кормления Жози.\n"
         "Используй /feed, чтобы посмотреть состояние "
-        "кормления и отметить кормление."
+        "кормления и отметить кормление.",
+        reply_markup=ReplyKeyboardRemove(),
     )
 
 
