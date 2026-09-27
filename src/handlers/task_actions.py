@@ -1,5 +1,6 @@
 from aiogram import F, Router
 from aiogram.types import CallbackQuery
+from datetime import datetime
 
 from keyboards.tasks import create_active_task_keyboard
 from services.tasks import (
@@ -50,6 +51,10 @@ async def accept_task_handler(
 
     task = get_task(task_id)
 
+    deadline = datetime.fromisoformat(
+        task["deadline"]
+    )
+
     await callback.message.edit_reply_markup(
         reply_markup=create_active_task_keyboard(task_id)
     )
@@ -60,7 +65,9 @@ async def accept_task_handler(
         chat_id=task["creator_telegram_id"],
         text=(
             f"✅ {task['assignee_name']} "
-            f"принял задачу #{task_id}."
+            f"принял задачу #{task_id}.\n\n"
+            f"⏰ Срок: "
+            f"{deadline.strftime('%d.%m в %H:%M')}"
         ),
     )
 
