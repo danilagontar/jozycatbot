@@ -13,7 +13,12 @@ router = Router()
 async def all_tasks_handler(message: Message):
     if message.from_user.id != ADMIN_USER_ID:
         return
-
+    print(
+        "USER ID:",
+        message.from_user.id,
+        "ADMIN ID:",
+        ADMIN_USER_ID,
+    )
     tasks = get_all_tasks(15)
 
     if not tasks:
@@ -41,10 +46,5 @@ async def all_tasks_handler(message: Message):
             f"🎯 Для: {task['assignee_name']}\n"
             f"📝 {task['text']}\n"
         )
-    print(
-        "USER ID:",
-        message.from_user.id,
-        "ADMIN ID:",
-        ADMIN_USER_ID,
-    )
+
     await message.answer("\n".join(lines))
