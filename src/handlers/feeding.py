@@ -97,10 +97,6 @@ async def feed_callback(callback: CallbackQuery):
 async def status_callback(callback: CallbackQuery):
     await callback.answer()
 
-    await callback.message.answer(
-        get_status_text()
-    )
-
 
 async def send_feeding_message(message: Message):
     await message.answer(
