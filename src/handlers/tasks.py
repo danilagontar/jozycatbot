@@ -73,20 +73,45 @@ def format_deadline(deadline):
     )
 
 
-def get_deadline_status(deadline):
+def truncate_task_text(text, max_words=20):
+    words = text.split()
+
+    if len(words) <= max_words:
+        return text
+
+    return " ".join(words[:max_words]) + "..."
+
+
+def get_deadline_status(task):
+    created_at = datetime.fromisoformat(task["created_at"])
+    deadline = datetime.fromisoformat(task["deadline"])
     now = datetime.now()
-    remaining = deadline - now
 
-    if remaining.total_seconds() <= 0:
+    total_time = (
+        deadline - created_at
+    ).total_seconds()
+
+    remaining_time = (
+        deadline - now
+    ).total_seconds()
+
+    if remaining_time <= 0:
         return "🔴"
 
-    if remaining.total_seconds() <= 60 * 60:
+    if total_time <= 0:
         return "🔴"
 
-    if remaining.total_seconds() <= 3 * 60 * 60:
+    remaining_percent = (
+        remaining_time / total_time
+    ) * 100
+
+    if remaining_percent >= 60:
+        return "🟢"
+
+    if remaining_percent >= 20:
         return "🟡"
 
-    return "🟢"
+    return "🔴"
 
 
 def create_task_card(task):
@@ -108,7 +133,7 @@ def create_task_card(task):
         f"📋 Задача #{task['id']}\n\n"
         f"👤 От: {creator_name}\n\n"
         f"📝 {task['text']}\n\n"
-        f"{get_deadline_status(deadline)} "
+        f"{get_deadline_status(task)} "
         f"⏰ Срок: {format_deadline(deadline)}\n\n"
         f"📌 Статус: "
         f"{status_names.get(task['status'], task['status'])}"
@@ -402,11 +427,14 @@ async def task_accept_handler(callback: CallbackQuery):
 
     await callback.answer("✅ Задача принята!")
 
+    task_text = truncate_task_text(task["text"])
+
     await callback.bot.send_message(
         chat_id=task["creator_telegram_id"],
         text=(
             f"✅ {USERS.get(callback.from_user.id, callback.from_user.full_name)} "
-            f"принял задачу #{task_id}."
+            f"принял задачу #{task_id}.\n\n"
+            f"📝 {task_text}"
         ),
     )
 
@@ -422,11 +450,11 @@ async def my_tasks_handler(message: Message):
         return
 
     await message.answer(
-        "📋 Твои активные задачи:\n\n"
-        "🟢 — больше 3 часов\n"
-        "🟡 — меньше 3 часов\n"
-        "🔴 — меньше часа или срок прошёл",
-        reply_markup=create_tasks_list_keyboard(tasks),
+        "📋 Твои активные задачи:",
+        reply_markup=create_tasks_list_keyboard(
+            tasks,
+            get_deadline_status,
+        ),
     )
 
 
@@ -512,12 +540,15 @@ async def task_complete_handler(callback: CallbackQuery):
         reply_markup=None,
     )
 
+    task_text = truncate_task_text(task["text"])
+
     await callback.bot.send_message(
         chat_id=task["creator_telegram_id"],
         text=(
             f"🎉 Задача #{task_id} выполнена!\n\n"
             f"👤 Исполнитель: "
-            f"{USERS.get(callback.from_user.id, callback.from_user.full_name)}"
+            f"{USERS.get(callback.from_user.id, callback.from_user.full_name)}\n\n"
+            f"📝 {task_text}"
         ),
     )
 
@@ -561,11 +592,14 @@ async def task_cancel_handler(callback: CallbackQuery):
         reply_markup=None,
     )
 
+    task_text = truncate_task_text(task["text"])
+
     await callback.bot.send_message(
         chat_id=task["creator_telegram_id"],
         text=(
             f"❌ Задача #{task_id} отменена.\n\n"
             f"👤 Исполнитель: "
-            f"{USERS.get(callback.from_user.id, callback.from_user.full_name)}"
+            f"{USERS.get(callback.from_user.id, callback.from_user.full_name)}\n\n"
+            f"📝 {task_text}"
         ),
     )
