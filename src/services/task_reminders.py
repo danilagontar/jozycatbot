@@ -53,20 +53,26 @@ def truncate_task_text(text, max_words=20):
     return " ".join(words[:max_words]) + "..."
 
 
-def get_reminder_message(task, reminder_type, remaining_seconds):
+def get_reminder_message(
+    task,
+    reminder_type,
+    remaining_seconds,
+):
     task_text = truncate_task_text(task["text"])
 
     if reminder_type == "20":
         return (
             f"⏰ До дедлайна задачи #{task['id']} "
-            f"осталось {format_remaining_time(remaining_seconds)}!\n\n"
+            f"осталось "
+            f"{format_remaining_time(remaining_seconds)}!\n\n"
             f"📝 {task_text}"
         )
 
     if reminder_type == "10":
         return (
             f"🔴 До дедлайна задачи #{task['id']} "
-            f"осталось {format_remaining_time(remaining_seconds)}!\n\n"
+            f"осталось "
+            f"{format_remaining_time(remaining_seconds)}!\n\n"
             f"📝 {task_text}"
         )
 
@@ -88,12 +94,13 @@ async def check_task_reminders(bot):
         accepted_at = datetime.fromisoformat(
             task["accepted_at"]
         )
+
         deadline = datetime.fromisoformat(
             task["deadline"]
         )
 
         total_seconds = (
-                deadline - accepted_at
+            deadline - accepted_at
         ).total_seconds()
 
         remaining_seconds = (
