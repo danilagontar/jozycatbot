@@ -196,7 +196,7 @@ def create_created_tasks_list_keyboard(tasks, get_status):
                         f"{status} #{task['id']} — "
                         f"Для {task['assignee_name']} — {text}"
                     ),
-                    callback_data=f"task:view:{task['id']}",
+                    callback_data=f"created_task:view:{task['id']}",
                 )
             ]
         )
