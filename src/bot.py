@@ -6,7 +6,8 @@ from aiogram.types import BotCommand
 
 from config import BOT_TOKEN, PROXY_URL
 from database import init_database
-from handlers.feeding import router
+from handlers.feeding import router as feeding_router
+from handlers.tasks import router as tasks_router
 
 
 async def set_commands(bot: Bot):
@@ -22,6 +23,10 @@ async def set_commands(bot: Bot):
         BotCommand(
             command="delete",
             description="Удалить последнее кормление",
+        ),
+        BotCommand(
+            command="task",
+            description="Создать задачу",
         ),
     ]
 
@@ -47,7 +52,8 @@ async def main():
 
     dp = Dispatcher()
 
-    dp.include_router(router)
+    dp.include_router(feeding_router)
+    dp.include_router(tasks_router)
 
     await set_commands(bot)
 
