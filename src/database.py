@@ -54,8 +54,40 @@ def init_database():
     """)
 
     connection.execute("""
+        CREATE TABLE IF NOT EXISTS tasks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            creator_user_id INTEGER NOT NULL,
+            assignee_user_id INTEGER NOT NULL,
+            text TEXT NOT NULL,
+            photo_file_id TEXT,
+            created_at TEXT NOT NULL,
+            deadline TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending_acceptance',
+            accepted_at TEXT,
+            completed_at TEXT,
+            cancelled_at TEXT,
+            reminder_sent INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY (creator_user_id) REFERENCES users (id),
+            FOREIGN KEY (assignee_user_id) REFERENCES users (id)
+        )
+    """)
+
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS task_deadline_changes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_id INTEGER NOT NULL,
+            old_deadline TEXT NOT NULL,
+            new_deadline TEXT NOT NULL,
+            requested_at TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending',
+            decided_at TEXT,
+            FOREIGN KEY (task_id) REFERENCES tasks (id)
+        )
+    """)
+
+    connection.execute("""
         INSERT OR IGNORE INTO cats (id, name)
-        VALUES (1, 'Жозю')
+        VALUES (1, 'Жозя')
     """)
 
     connection.commit()
