@@ -8,6 +8,7 @@ from aiogram.types import CallbackQuery, Message
 from keyboards.tasks import (
     create_assignee_keyboard,
     create_deadline_keyboard,
+    create_task_accept_keyboard,
 )
 from services.tasks import create_task
 
@@ -36,7 +37,8 @@ async def task_start_handler(message: Message, state: FSMContext):
     await state.set_state(TaskCreation.waiting_assignee)
 
     await message.answer(
-        "Кому назначить задачу?",
+        "📋 Создание новой задачи\n\n"
+        "👤 Кому назначить задачу?",
         reply_markup=create_assignee_keyboard(),
     )
 
@@ -54,7 +56,7 @@ async def task_assignee_handler(
 
     if not assignee_name:
         await callback.answer(
-            "Пользователь не найден.",
+            "❌ Пользователь не найден.",
             show_alert=True,
         )
         return
@@ -68,8 +70,9 @@ async def task_assignee_handler(
     await callback.answer()
 
     await callback.message.edit_text(
-        f"Задача для: {assignee_name}\n\n"
-        "Напиши текст задачи или отправь фото с подписью."
+        f"👤 Задача для: {assignee_name}\n\n"
+        "📝 Напиши текст задачи или отправь фото "
+        "с подписью."
     )
 
 
@@ -86,7 +89,8 @@ async def task_text_handler(
 
     if not text and not photo_file_id:
         await message.answer(
-            "Отправь текст задачи или фото с подписью."
+            "❌ Не удалось получить задачу.\n\n"
+            "Отправь текст или фото с подписью."
         )
         return
 
@@ -97,7 +101,7 @@ async def task_text_handler(
     await state.set_state(TaskCreation.waiting_deadline)
 
     await message.answer(
-        "Выбери срок выполнения:",
+        "⏰ Выбери срок выполнения:",
         reply_markup=create_deadline_keyboard(),
     )
 
@@ -120,7 +124,7 @@ async def task_deadline_handler(
         await callback.answer()
 
         await callback.message.edit_text(
-            "Введи срок в формате:\n"
+            "🗓 Введи срок выполнения в формате:\n\n"
             "ДД.ММ ЧЧ:ММ\n\n"
             "Например: 28.09 21:30"
         )
@@ -149,7 +153,7 @@ async def task_deadline_handler(
         )
     else:
         await callback.answer(
-            "Неизвестный срок.",
+            "❌ Неизвестный срок.",
             show_alert=True,
         )
         return
@@ -185,7 +189,7 @@ async def task_custom_deadline_handler(
 
         if deadline <= now:
             await message.answer(
-                "Этот срок уже прошёл.\n"
+                "❌ Этот срок уже прошёл.\n\n"
                 "Введи будущую дату в формате "
                 "ДД.ММ ЧЧ:ММ."
             )
@@ -193,7 +197,7 @@ async def task_custom_deadline_handler(
 
     except (ValueError, AttributeError):
         await message.answer(
-            "Неверный формат.\n\n"
+            "❌ Неверный формат.\n\n"
             "Используй:\n"
             "ДД.ММ ЧЧ:ММ\n\n"
             "Например: 28.09 21:30"
@@ -225,10 +229,47 @@ async def create_task_from_state(
         deadline=deadline,
     )
 
+    task_text = data["task_text"]
+    assignee_id = data["assignee_id"]
+    assignee_name = data["assignee_name"]
+    photo_file_id = data["photo_file_id"]
+
+    deadline_text = deadline.strftime("%d.%m.%Y %H:%M")
+
     await state.clear()
 
-    await message.answer(
-        f"Задача #{task_id} создана.\n"
-        f"Исполнитель: {data['assignee_name']}\n"
-        f"Срок: {deadline.strftime('%d.%m.%Y %H:%M')}"
+    task_message = (
+        f"📋 Новая задача #{task_id}\n\n"
+        f"👤 От: {user.full_name}\n\n"
+        f"📝 {task_text}\n\n"
+        f"⏰ Срок: {deadline_text}"
     )
+
+    try:
+        if photo_file_id:
+            await message.bot.send_photo(
+                chat_id=assignee_id,
+                photo=photo_file_id,
+                caption=task_message,
+                reply_markup=create_task_accept_keyboard(task_id),
+            )
+        else:
+            await message.bot.send_message(
+                chat_id=assignee_id,
+                text=task_message,
+                reply_markup=create_task_accept_keyboard(task_id),
+            )
+
+        await message.answer(
+            f"✅ Задача #{task_id} создана!\n\n"
+            f"👤 Исполнитель: {assignee_name}\n"
+            f"📝 {task_text}\n"
+            f"⏰ Срок: {deadline_text}"
+        )
+
+    except Exception:
+        await message.answer(
+            f"⚠️ Задача #{task_id} создана, "
+            "но отправить её исполнителю не удалось.\n\n"
+            "Возможно, он ещё не запускал бота через /start."
+        )

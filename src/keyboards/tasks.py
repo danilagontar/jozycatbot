@@ -6,21 +6,21 @@ def create_assignee_keyboard():
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="Артем",
+                    text="👤 Артем",
                     callback_data="task:user:2008737156",
                 ),
                 InlineKeyboardButton(
-                    text="Даня",
+                    text="👤 Даня",
                     callback_data="task:user:431869701",
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text="Мама",
+                    text="👩 Мама",
                     callback_data="task:user:540028179",
                 ),
                 InlineKeyboardButton(
-                    text="Женя",
+                    text="👤 Женя",
                     callback_data="task:user:982526654",
                 ),
             ],
@@ -33,29 +33,42 @@ def create_deadline_keyboard():
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="15 минут",
+                    text="⏱ 15 минут",
                     callback_data="task:deadline:15m",
                 ),
                 InlineKeyboardButton(
-                    text="1 час",
+                    text="⏱ 1 час",
                     callback_data="task:deadline:1h",
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text="Сегодня",
+                    text="🌙 Сегодня",
                     callback_data="task:deadline:today",
                 ),
                 InlineKeyboardButton(
-                    text="Завтра",
+                    text="📅 Завтра",
                     callback_data="task:deadline:tomorrow",
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text="Свой срок",
+                    text="🗓 Свой срок",
                     callback_data="task:deadline:custom",
                 ),
             ],
+        ]
+    )
+
+
+def create_task_accept_keyboard(task_id):
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="⚠️ Принять задачу",
+                    callback_data=f"task:accept:{task_id}",
+                )
+            ]
         ]
     )
