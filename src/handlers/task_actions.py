@@ -48,6 +48,8 @@ async def accept_task_handler(
         )
         return
 
+    task = get_task(task_id)
+
     await callback.message.edit_reply_markup(
         reply_markup=create_active_task_keyboard(task_id)
     )
@@ -57,8 +59,8 @@ async def accept_task_handler(
     await callback.bot.send_message(
         chat_id=task["creator_telegram_id"],
         text=(
-            f"✅ {task['assignee_name']} принял "
-            f"задачу #{task_id}."
+            f"✅ {task['assignee_name']} "
+            f"принял задачу #{task_id}."
         ),
     )
 

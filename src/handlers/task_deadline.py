@@ -148,7 +148,11 @@ async def move_deadline_30_minutes_handler(
         )
         return
 
-    new_deadline = datetime.now() + timedelta(
+    current_deadline = datetime.fromisoformat(
+        task["deadline"]
+    )
+
+    new_deadline = current_deadline + timedelta(
         minutes=30
     )
 
@@ -206,7 +210,11 @@ async def move_deadline_3_hours_handler(
         )
         return
 
-    new_deadline = datetime.now() + timedelta(
+    current_deadline = datetime.fromisoformat(
+        task["deadline"]
+    )
+
+    new_deadline = current_deadline + timedelta(
         hours=3
     )
 
