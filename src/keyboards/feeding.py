@@ -7,12 +7,14 @@ def create_feeding_keyboard(status_text: str) -> InlineKeyboardMarkup:
             [
                 InlineKeyboardButton(
                     text="🐱 Покормить",
-                    callback_data="feeding:feed"
-                ),
+                    callback_data="feeding:feed",
+                )
+            ],
+            [
                 InlineKeyboardButton(
                     text=status_text,
-                    callback_data="feeding:status"
+                    callback_data="feeding:status",
                 )
-            ]
+            ],
         ]
     )

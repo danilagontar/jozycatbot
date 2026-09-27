@@ -51,7 +51,9 @@ def get_status_text():
     return "\n".join(lines)
 
 
-@router.callback_query(lambda callback: callback.data == "feeding:feed")
+@router.callback_query(
+    lambda callback: callback.data == "feeding:feed"
+)
 async def feed_callback(callback: CallbackQuery):
     user = callback.from_user
 
@@ -64,31 +66,34 @@ async def feed_callback(callback: CallbackQuery):
         await callback.answer()
         return
 
-    status_text = get_status_button_text()
-
     if result["already_fed"]:
         await callback.answer(
             "🐱 Кошку уже покормили в этот период."
         )
-    else:
-        period_name = (
-            "утром"
-            if result["period"] == "morning"
-            else "вечером"
-        )
+        return
 
-        time = format_time(result["fed_at"])
+    period_name = (
+        "утром"
+        if result["period"] == "morning"
+        else "вечером"
+    )
 
-        await callback.answer(
-            f"🐱 Покормлено {period_name} в {time}."
-        )
+    time = format_time(result["fed_at"])
+
+    await callback.answer(
+        f"🐱 Покормлено {period_name} в {time}."
+    )
+
+    status_text = get_status_button_text()
 
     await callback.message.edit_reply_markup(
         reply_markup=create_feeding_keyboard(status_text)
     )
 
 
-@router.callback_query(lambda callback: callback.data == "feeding:status")
+@router.callback_query(
+    lambda callback: callback.data == "feeding:status"
+)
 async def status_callback(callback: CallbackQuery):
     await callback.answer()
 
