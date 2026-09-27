@@ -90,9 +90,9 @@ def create_task_card(task):
         and task["deadline_type"] == "relative"
     ):
         if task["deadline_minutes"] == 15:
-            deadline_text = "через 15 минут после принятия"
+            deadline_text = "через 15 минут"
         elif task["deadline_minutes"] == 60:
-            deadline_text = "через 1 час после принятия"
+            deadline_text = "через 1 час"
         else:
             deadline_text = "после принятия"
     else:

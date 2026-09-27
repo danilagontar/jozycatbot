@@ -105,6 +105,46 @@ def create_active_task_keyboard(task_id):
     )
 
 
+def create_deadline_change_keyboard():
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="⏱ +30 минут",
+                    callback_data="task:move_time:30m",
+                ),
+                InlineKeyboardButton(
+                    text="⏱ +3 часа",
+                    callback_data="task:move_time:3h",
+                ),
+            ]
+        ]
+    )
+
+
+def create_deadline_change_confirmation_keyboard(
+    change_id
+):
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="✅ Подтвердить",
+                    callback_data=(
+                        f"task:deadline:approve:{change_id}"
+                    ),
+                ),
+                InlineKeyboardButton(
+                    text="❌ Отклонить",
+                    callback_data=(
+                        f"task:deadline:reject:{change_id}"
+                    ),
+                ),
+            ]
+        ]
+    )
+
+
 def create_tasks_list_keyboard(tasks, get_status):
     buttons = []
 
