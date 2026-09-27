@@ -243,3 +243,24 @@ def get_all_chats():
     connection.close()
 
     return chats
+
+def sync_user_names():
+    from config import USERS
+
+    connection = get_connection()
+
+    for telegram_id, name in USERS.items():
+        connection.execute(
+            """
+            UPDATE users
+            SET name = ?
+            WHERE telegram_id = ?
+            """,
+            (
+                name,
+                telegram_id,
+            ),
+        )
+
+    connection.commit()
+    connection.close()

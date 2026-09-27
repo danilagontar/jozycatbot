@@ -2,13 +2,7 @@ from datetime import datetime, timedelta
 
 from database import create_user, get_connection
 
-
-USERS = {
-    2008737156: "Артем",
-    431869701: "Даня",
-    540028179: "Мама",
-    982526654: "Женя",
-}
+from config import USERS
 
 
 def create_task(

@@ -11,23 +11,10 @@ from keyboards.tasks import (
     create_task_accept_keyboard,
 )
 from services.tasks import create_task
-
+from config import CREATOR_NAMES, USERS
 
 router = Router()
 
-USERS = {
-    2008737156: "Артем",
-    431869701: "Даня",
-    540028179: "Мама",
-    982526654: "Женя",
-}
-
-CREATOR_NAMES = {
-    2008737156: "Артема",
-    431869701: "Дани",
-    540028179: "Мамы",
-    982526654: "Жени",
-}
 
 MONTHS = {
     1: "января",

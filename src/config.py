@@ -16,6 +16,20 @@ ALLOWED_USER_IDS = {
 
 ADMIN_USER_ID = int(os.getenv("ADMIN_USER_ID", "0"))
 
+USERS = {
+    2008737156: "Артем",
+    431869701: "Даня",
+    540028179: "Мама",
+    982526654: "Женя",
+}
+
+CREATOR_NAMES = {
+    2008737156: "Артема",
+    431869701: "Дани",
+    540028179: "Мамы",
+    982526654: "Жени",
+}
+
 MORNING_START = time(5, 0)
 MORNING_END = time(12, 0)
 

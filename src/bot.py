@@ -9,7 +9,7 @@ from database import init_database
 from handlers.feeding import router as feeding_router
 from handlers.tasks import router as tasks_router
 from services.task_reminders import check_task_reminders
-
+from database import init_database, sync_user_names
 
 async def set_commands(bot: Bot):
     commands = [
@@ -33,6 +33,10 @@ async def set_commands(bot: Bot):
             command="mytasks",
             description="Мои активные задачи",
         ),
+        BotCommand(
+            command="mycreated",
+            description="Мои созданные задачи",
+        ),
     ]
 
     await bot.set_my_commands(commands)
@@ -53,7 +57,7 @@ async def main():
         raise ValueError("BOT_TOKEN не найден в .env")
 
     init_database()
-
+    sync_user_names()
     session = (
         AiohttpSession(proxy=PROXY_URL)
         if PROXY_URL
