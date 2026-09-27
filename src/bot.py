@@ -37,6 +37,10 @@ async def set_commands(bot: Bot):
             command="mycreated",
             description="Мои созданные задачи",
         ),
+        BotCommand(
+            command="top",
+            description="Топ за неделю",
+        ),
     ]
 
     await bot.set_my_commands(commands)

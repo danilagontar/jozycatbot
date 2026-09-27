@@ -4,7 +4,6 @@ from database import create_user, get_connection
 
 from config import USERS
 
-
 def create_task(
     creator_telegram_id,
     creator_name,
@@ -528,6 +527,98 @@ def reject_deadline_change(change_id):
             change_id,
         ),
     )
+
+    def get_weekly_task_top():
+        now = datetime.now()
+
+        monday = now - timedelta(days=now.weekday())
+        monday = monday.replace(
+            hour=0,
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+
+        next_monday = monday + timedelta(days=7)
+
+        connection = get_connection()
+
+        rows = connection.execute(
+            """
+            SELECT
+                users.telegram_id,
+                users.name,
+                tasks.completed_at,
+                tasks.deadline
+            FROM tasks
+            JOIN users
+                ON users.id = tasks.assignee_user_id
+            WHERE tasks.status = 'completed'
+                AND tasks.completed_at >= ?
+                AND tasks.completed_at < ?
+            """,
+            (
+                monday.isoformat(timespec="seconds"),
+                next_monday.isoformat(timespec="seconds"),
+            ),
+        ).fetchall()
+
+        connection.close()
+
+        stats = {}
+
+        for row in rows:
+            telegram_id = row["telegram_id"]
+            name = row["name"]
+
+            if telegram_id not in stats:
+                stats[telegram_id] = {
+                    "name": name,
+                    "completed_on_time": 0,
+                    "overdue": 0,
+                }
+
+            completed_at = datetime.fromisoformat(
+                row["completed_at"]
+            )
+
+            deadline = datetime.fromisoformat(
+                row["deadline"]
+            )
+
+            if completed_at <= deadline:
+                stats[telegram_id]["completed_on_time"] += 1
+            else:
+                stats[telegram_id]["overdue"] += 1
+
+        result = []
+
+        for stats_item in stats.values():
+            total = (
+                    stats_item["completed_on_time"]
+                    + stats_item["overdue"]
+            )
+
+            result.append(
+                {
+                    "name": stats_item["name"],
+                    "completed_on_time": stats_item["completed_on_time"],
+                    "overdue": stats_item["overdue"],
+                    "total": total,
+                }
+            )
+
+        result.sort(
+            key=lambda item: item["total"],
+            reverse=True,
+        )
+
+        return result, monday, next_monday
+
+
+
+
+
 
     connection.commit()
 
