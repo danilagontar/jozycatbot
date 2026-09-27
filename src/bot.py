@@ -8,6 +8,7 @@ from config import BOT_TOKEN, PROXY_URL
 from database import init_database
 from handlers.feeding import router as feeding_router
 from handlers.tasks import router as tasks_router
+from services.task_reminders import check_task_reminders
 
 
 async def set_commands(bot: Bot):
@@ -37,6 +38,16 @@ async def set_commands(bot: Bot):
     await bot.set_my_commands(commands)
 
 
+async def reminder_loop(bot: Bot):
+    while True:
+        try:
+            await check_task_reminders(bot)
+        except Exception:
+            pass
+
+        await asyncio.sleep(60)
+
+
 async def main():
     if not BOT_TOKEN:
         raise ValueError("BOT_TOKEN не найден в .env")
@@ -61,9 +72,20 @@ async def main():
 
     await set_commands(bot)
 
+    reminder_task = asyncio.create_task(
+        reminder_loop(bot)
+    )
+
     try:
         await dp.start_polling(bot)
     finally:
+        reminder_task.cancel()
+
+        try:
+            await reminder_task
+        except asyncio.CancelledError:
+            pass
+
         await bot.session.close()
 
 

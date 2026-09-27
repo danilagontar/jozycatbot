@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from database import create_user, get_connection
 
@@ -176,6 +176,83 @@ def get_created_tasks(telegram_id):
     return tasks
 
 
+def get_reminder_tasks():
+    connection = get_connection()
+
+    tasks = connection.execute(
+        """
+        SELECT
+            tasks.*,
+            assignee.telegram_id AS assignee_telegram_id
+        FROM tasks
+        JOIN users AS assignee
+            ON assignee.id = tasks.assignee_user_id
+        WHERE tasks.status IN (
+            'pending_acceptance',
+            'accepted'
+        )
+        ORDER BY tasks.deadline
+        """
+    ).fetchall()
+
+    connection.close()
+
+    return tasks
+
+
+def mark_reminder_20_sent(task_id):
+    connection = get_connection()
+
+    connection.execute(
+        """
+        UPDATE tasks
+        SET reminder_20_sent = 1
+        WHERE id = ?
+        """,
+        (task_id,),
+    )
+
+    connection.commit()
+    connection.close()
+
+
+def mark_reminder_10_sent(task_id):
+    connection = get_connection()
+
+    connection.execute(
+        """
+        UPDATE tasks
+        SET reminder_10_sent = 1
+        WHERE id = ?
+        """,
+        (task_id,),
+    )
+
+    connection.commit()
+    connection.close()
+
+
+def mark_overdue(task_id):
+    connection = get_connection()
+
+    connection.execute(
+        """
+        UPDATE tasks
+        SET
+            overdue_at = ?,
+            overdue_notified = 1
+        WHERE id = ?
+        """,
+        (
+            datetime.now().isoformat(timespec="seconds"),
+            task_id,
+        ),
+    )
+
+    connection.commit()
+    connection.close()
+
+
 def accept_task(task_id):
     connection = get_connection()
 
@@ -318,7 +395,12 @@ def approve_deadline_change(change_id):
     connection.execute(
         """
         UPDATE tasks
-        SET deadline = ?
+        SET
+            deadline = ?,
+            overdue_at = NULL,
+            reminder_20_sent = 0,
+            reminder_10_sent = 0,
+            overdue_notified = 0
         WHERE id = ?
         """,
         (

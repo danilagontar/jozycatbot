@@ -67,6 +67,10 @@ def init_database():
             completed_at TEXT,
             cancelled_at TEXT,
             reminder_sent INTEGER NOT NULL DEFAULT 0,
+            overdue_at TEXT,
+            reminder_20_sent INTEGER NOT NULL DEFAULT 0,
+            reminder_10_sent INTEGER NOT NULL DEFAULT 0,
+            overdue_notified INTEGER NOT NULL DEFAULT 0,
             FOREIGN KEY (creator_user_id) REFERENCES users (id),
             FOREIGN KEY (assignee_user_id) REFERENCES users (id)
         )
@@ -89,6 +93,48 @@ def init_database():
         INSERT OR IGNORE INTO cats (id, name)
         VALUES (1, 'Жозя')
     """)
+
+    columns = {
+        row["name"]
+        for row in connection.execute(
+            "PRAGMA table_info(tasks)"
+        ).fetchall()
+    }
+
+    if "overdue_at" not in columns:
+        connection.execute(
+            """
+            ALTER TABLE tasks
+            ADD COLUMN overdue_at TEXT
+            """
+        )
+
+    if "reminder_20_sent" not in columns:
+        connection.execute(
+            """
+            ALTER TABLE tasks
+            ADD COLUMN reminder_20_sent INTEGER
+            NOT NULL DEFAULT 0
+            """
+        )
+
+    if "reminder_10_sent" not in columns:
+        connection.execute(
+            """
+            ALTER TABLE tasks
+            ADD COLUMN reminder_10_sent INTEGER
+            NOT NULL DEFAULT 0
+            """
+        )
+
+    if "overdue_notified" not in columns:
+        connection.execute(
+            """
+            ALTER TABLE tasks
+            ADD COLUMN overdue_notified INTEGER
+            NOT NULL DEFAULT 0
+            """
+        )
 
     connection.commit()
     connection.close()
