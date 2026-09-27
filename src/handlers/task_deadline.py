@@ -64,12 +64,7 @@ async def move_deadline_handler(
     callback: CallbackQuery,
     state: FSMContext,
 ):
-    value = callback.data.split(":")[-1]
-
-    if value in ("30m", "3h"):
-        return
-
-    task_id = int(value)
+    task_id = int(callback.data.split(":")[-1])
     task = get_task(task_id)
 
     if not task:
@@ -101,15 +96,12 @@ async def move_deadline_handler(
 
     await callback.message.answer(
         "🗓 Введи новый срок:\n\n"
-        "Или выбери быстрый вариант:",
-        reply_markup=create_deadline_change_keyboard(),
-    )
-
-    await callback.message.answer(
+        "Или выбери быстрый вариант:\n\n"
         "Или введи дату и время сообщением:\n"
         "ДД.ММ ЧЧ:ММ\n\n"
         "Например:\n"
-        "27.09 23:30"
+        "27.09 23:30",
+        reply_markup=create_deadline_change_keyboard(),
     )
 
     await callback.answer()
@@ -144,6 +136,14 @@ async def move_deadline_30_minutes_handler(
         await state.clear()
         await callback.answer(
             "Эта задача назначена другому пользователю.",
+            show_alert=True,
+        )
+        return
+
+    if task["status"] != "accepted":
+        await state.clear()
+        await callback.answer(
+            "Эту задачу уже нельзя перенести.",
             show_alert=True,
         )
         return
@@ -198,6 +198,14 @@ async def move_deadline_3_hours_handler(
         )
         return
 
+    if task["status"] != "accepted":
+        await state.clear()
+        await callback.answer(
+            "Эту задачу уже нельзя перенести.",
+            show_alert=True,
+        )
+        return
+
     new_deadline = datetime.now() + timedelta(
         hours=3
     )
@@ -220,6 +228,13 @@ async def custom_deadline_handler(
     message: Message,
     state: FSMContext,
 ):
+    if not message.text:
+        await message.answer(
+            "❌ Введи дату и время текстом:\n"
+            "27.09 23:30"
+        )
+        return
+
     data = await state.get_data()
     task_id = data.get("task_id")
 
@@ -231,12 +246,10 @@ async def custom_deadline_handler(
         new_deadline = datetime.strptime(
             message.text.strip(),
             "%d.%m %H:%M",
-        )
-
-        new_deadline = new_deadline.replace(
+        ).replace(
             year=datetime.now().year
         )
-    except (ValueError, AttributeError):
+    except ValueError:
         await message.answer(
             "❌ Неверный формат.\n\n"
             "Введи дату и время так:\n"
@@ -344,7 +357,9 @@ async def approve_deadline_handler(
         reply_markup=None
     )
 
-    await callback.answer("Дедлайн изменён.")
+    await callback.answer(
+        "Дедлайн изменён."
+    )
 
     await callback.bot.send_message(
         chat_id=task["assignee_telegram_id"],
@@ -408,7 +423,9 @@ async def reject_deadline_handler(
         reply_markup=None
     )
 
-    await callback.answer("Перенос отклонён.")
+    await callback.answer(
+        "Перенос отклонён."
+    )
 
     await callback.bot.send_message(
         chat_id=task["assignee_telegram_id"],
